@@ -1,4 +1,4 @@
-import React, { useState, useContext, createContext } from "react";
+import React, { useState, useEffect, useContext, createContext } from "react";
 import { BrowserRouter as Router, Route, Routes, Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Edit, Trash2 } from "lucide-react";
 
@@ -7,20 +7,31 @@ const EventContext = createContext();
 const useEvents = () => {
   const [events, setEvents] = useState([]);
 
+  useEffect(() => {
+    const storedEvents = localStorage.getItem("events");
+    if (storedEvents) {
+      setEvents(JSON.parse(storedEvents));
+    }
+  }, []);
+
   const addEvent = (event) => {
-    setEvents([...events, { ...event, id: Date.now() }]);
+    const newEvents = [...events, { ...event, id: Date.now() }];
+    setEvents(newEvents);
+    localStorage.setItem("events", JSON.stringify(newEvents));
   };
 
   const editEvent = (id, updatedEvent) => {
-    setEvents(
-      events.map((event) =>
-        event.id === id ? { ...event, ...updatedEvent } : event
-      )
+    const newEvents = events.map((event) =>
+      event.id === id ? { ...event, ...updatedEvent } : event
     );
+    setEvents(newEvents);
+    localStorage.setItem("events", JSON.stringify(newEvents));
   };
 
   const deleteEvent = (id) => {
-    setEvents(events.filter((event) => event.id !== id));
+    const newEvents = events.filter((event) => event.id !== id);
+    setEvents(newEvents);
+    localStorage.setItem("events", JSON.stringify(newEvents));
   };
 
   return { events, addEvent, editEvent, deleteEvent };
@@ -101,7 +112,7 @@ const Calendar = () => {
                 new Date(
                   currentDate.getFullYear(),
                   currentDate.getMonth(),
-                  day + 1
+                  day + 2
                 )
               )
             }
@@ -132,26 +143,27 @@ const Calendar = () => {
         ))}
       </div>
       {selectedDate && (
-        <EventForm date={selectedDate} onClose={() => setSelectedDate(null)} />
+        <EventForm
+          date={selectedDate.toISOString().split("T")[0]}
+          onClose={() => setSelectedDate(null)}
+        />
       )}
     </div>
   );
 };
 
-const EventForm = ({ event, onClose }) => {
+const EventForm = ({ event, date, onClose }) => {
   const { addEvent, editEvent } = useContext(EventContext);
   const [title, setTitle] = useState(event ? event.title : "");
-  const [date, setDate] = useState(
-    event ? event.date : new Date().toISOString().split("T")[0]
-  );
+  const [eventDate, setEventDate] = useState(event ? event.date : date);
   const [category, setCategory] = useState(event ? event.category : "Work");
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (event) {
-      editEvent(event.id, { title, date, category });
+      editEvent(event.id, { title, date: eventDate, category });
     } else {
-      addEvent({ title, date, category });
+      addEvent({ title, date: eventDate, category });
     }
     onClose();
   };
@@ -173,8 +185,8 @@ const EventForm = ({ event, onClose }) => {
           />
           <input
             type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
+            value={eventDate}
+            onChange={(e) => setEventDate(e.target.value)}
             className="w-full p-3 mb-4 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             required
           />
@@ -258,7 +270,11 @@ const EventList = () => {
         </div>
       ))}
       {editingEvent && (
-        <EventForm event={editingEvent} onClose={() => setEditingEvent(null)} />
+        <EventForm
+          event={editingEvent}
+          date={editingEvent.date}
+          onClose={() => setEditingEvent(null)}
+        />
       )}
     </div>
   );
